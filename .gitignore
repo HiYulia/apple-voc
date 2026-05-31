@@ -1,0 +1,24 @@
+# Data files with personal/scraped data
+data/reviews_raw.csv
+data/reviews_analyzed.csv
+data/iphone11_raw.csv
+data/online_shopping*.csv
+data/online_shopping*.zip
+data/*.zip
+
+# Credentials
+.env
+config.py
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Streamlit
+.streamlit/
