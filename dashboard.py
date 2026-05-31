@@ -135,6 +135,7 @@ SENT_COLOR = {
     "neutral":  "#6366f1",
     "mixed":    "#f59e0b",
 }
+SENT_ZH = {"positive": "正面", "negative": "负面", "neutral": "中性", "mixed": "混合"}
 
 # ── Language toggle ────────────────────────────────────────────────
 st.sidebar.markdown("### 🌐 Language / 语言")
@@ -223,38 +224,59 @@ with r1l:
     st.markdown(f'<div class="section-title">{t("top_concerns", L)}</div>', unsafe_allow_html=True)
     cat_counts = fdf["cat_label"].value_counts().reset_index()
     cat_counts.columns = ["category", "count"]
+    # Highlight purchase_decision differently
+    purchase_label = cat_label("purchase_decision", L)
+    cat_counts["color"] = cat_counts["category"].apply(
+        lambda x: "#f59e0b" if x == purchase_label else "#6366f1"
+    )
     fig1 = px.bar(
         cat_counts, x="count", y="category", orientation="h",
-        color="count", color_continuous_scale=["#312e81", "#6366f1", "#a5b4fc"],
+        color="color", color_discrete_map="identity",
         labels={"count": t("count", L), "category": ""},
     )
-    fig1.update_traces(marker_line_width=0)
-    fig1.update_layout(**PLOTLY_THEME, height=340,
+    fig1.update_traces(marker_line_width=0, showlegend=False)
+    fig1.update_layout(**PLOTLY_THEME, height=360,
                        coloraxis_showscale=False,
                        yaxis=dict(categoryorder="total ascending", gridcolor="#2d3147"),
-                       xaxis=dict(gridcolor="#2d3147"))
+                       xaxis=dict(gridcolor="#2d3147"),
+                       showlegend=False)
+    # Add annotation for purchase_decision
+    note = "💡 选机决策为最大类别" if L=="zh" else "💡 Purchase Decision is the #1 topic"
+    fig1.add_annotation(x=0, y=1.06, xref="paper", yref="paper",
+                        text=note, showarrow=False,
+                        font=dict(color="#f59e0b", size=11))
     st.plotly_chart(fig1, use_container_width=True)
 
 with r1r:
     st.markdown(f'<div class="section-title">{t("sentiment_dist", L)}</div>', unsafe_allow_html=True)
+    sent_counts = fdf["sentiment"].value_counts().reset_index()
+    sent_counts.columns = ["sentiment", "count"]
+    # Translate sentiment labels
+    sent_counts["label"] = sent_counts["sentiment"].map(
+        SENT_ZH if L=="zh" else {"positive":"Positive","negative":"Negative","neutral":"Neutral","mixed":"Mixed"}
+    ).fillna(sent_counts["sentiment"])
+
     if fdf["model"].nunique() > 1 and sel_product == t("all", L):
         sent_df = fdf.groupby(["model", "sentiment"]).size().reset_index(name="count")
-        fig2 = px.bar(sent_df, x="model", y="count", color="sentiment",
-                      barmode="group", color_discrete_map=SENT_COLOR,
-                      labels={"count": t("count", L), "model": "", "sentiment": t("sentiment", L)})
-        fig2.update_layout(**PLOTLY_THEME, height=340,
+        sent_df["sent_label"] = sent_df["sentiment"].map(
+            SENT_ZH if L=="zh" else {"positive":"Positive","negative":"Negative","neutral":"Neutral","mixed":"Mixed"}
+        ).fillna(sent_df["sentiment"])
+        color_map = {v: SENT_COLOR[k] for k, v in (SENT_ZH if L=="zh" else {"positive":"Positive","negative":"Negative","neutral":"Neutral","mixed":"Mixed"}).items()}
+        fig2 = px.bar(sent_df, x="model", y="count", color="sent_label",
+                      barmode="group", color_discrete_map=color_map,
+                      labels={"count": t("count", L), "model": "", "sent_label": t("sentiment", L)})
+        fig2.update_layout(**PLOTLY_THEME, height=360,
                            xaxis=dict(gridcolor="#2d3147"),
                            yaxis=dict(gridcolor="#2d3147"),
                            legend=dict(bgcolor="#1e2235", bordercolor="#2d3147"))
     else:
-        sent_counts = fdf["sentiment"].value_counts().reset_index()
         fig2 = go.Figure(go.Pie(
-            labels=sent_counts["sentiment"], values=sent_counts["count"],
+            labels=sent_counts["label"], values=sent_counts["count"],
             hole=0.55,
             marker_colors=[SENT_COLOR.get(s, "#94a3b8") for s in sent_counts["sentiment"]],
             textinfo="label+percent", textfont_size=12,
         ))
-        fig2.update_layout(**PLOTLY_THEME, height=340,
+        fig2.update_layout(**PLOTLY_THEME, height=360,
                            legend=dict(bgcolor="#1e2235", bordercolor="#2d3147"))
     st.plotly_chart(fig2, use_container_width=True)
 
@@ -298,13 +320,16 @@ with r2r:
              .reset_index(name="count")
              .sort_values("month"))
     trend = trend[trend["month"].str.startswith(("2025","2026"))]
+    sent_map = SENT_ZH if L=="zh" else {"positive":"Positive","negative":"Negative","neutral":"Neutral","mixed":"Mixed"}
+    trend["sent_label"] = trend["sentiment"].map(sent_map).fillna(trend["sentiment"])
+    color_map_trend = {v: SENT_COLOR[k] for k,v in sent_map.items() if k in SENT_COLOR}
 
     if len(trend) > 0:
         fig4 = px.line(
-            trend, x="month", y="count", color="sentiment",
-            color_discrete_map=SENT_COLOR,
+            trend, x="month", y="count", color="sent_label",
+            color_discrete_map=color_map_trend,
             markers=True,
-            labels={"count": t("count", L), "month": "", "sentiment": t("sentiment", L)},
+            labels={"count": t("count", L), "month": "", "sent_label": t("sentiment", L)},
         )
         fig4.update_traces(line_width=2, marker_size=6)
         fig4.update_layout(**PLOTLY_THEME, height=340,
@@ -358,22 +383,41 @@ sub1, sub2 = ("最高赞正面评论", "最高赞负面评论") if L=="zh" else 
 
 q_col1, q_col2 = st.columns(2)
 
+JOKE_PATTERNS = ["辞职在家全职照顾手机", "哈哈哈哈", "😂😂😂", "打广告", "抽100台"]
+
 def render_quotes(container, df_subset, max_quotes=4):
-    top = (df_subset
+    # Filter out jokes/memes and very short content
+    filtered = df_subset[
+        ~df_subset["content"].astype(str).str.contains("|".join(JOKE_PATTERNS), na=False) &
+        (df_subset["content"].astype(str).str.len() > 30)
+    ]
+    top = (filtered
            .sort_values("useful_count", ascending=False)
            .drop_duplicates(subset=["content"])
            .head(max_quotes))
     for _, row in top.iterrows():
-        text = str(row["content"])[:160] + ("…" if len(str(row["content"])) > 160 else "")
-        cat  = row.get("cat_label", "")
-        sent = row.get("sentiment", "")
+        full_text = str(row["content"])
+        # Smart truncation: cut at first sentence break around 80-100 chars
+        short = full_text
+        for sep in ["。", "！", "？", "…", "\n"]:
+            idx = full_text.find(sep, 40)
+            if 40 < idx < 120:
+                short = full_text[:idx+1]
+                break
+        if short == full_text and len(full_text) > 100:
+            short = full_text[:100] + "…"
+
+        cat   = row.get("cat_label", "")
+        sent  = row.get("sentiment", "")
         likes = int(row.get("useful_count", 0))
-        src  = row.get("src_label", "")
-        sent_css = {"positive":"quote-sentiment-pos","negative":"quote-sentiment-neg"}.get(sent,"quote-sentiment-neu")
+        src   = row.get("src_label", "")
+        sent_css  = {"positive":"quote-sentiment-pos","negative":"quote-sentiment-neg"}.get(sent,"quote-sentiment-neu")
         sent_icon = {"positive":"👍","negative":"👎","neutral":"💬","mixed":"🔀"}.get(sent,"💬")
+        has_more = len(full_text) > len(short)
+        more_html = f' <span style="color:#6366f1;font-size:0.72rem">+{len(full_text)-len(short)}字</span>' if has_more else ""
         container.markdown(
             f'<div class="quote-card">'
-            f'<div class="quote-text">"{text}"</div>'
+            f'<div class="quote-text">"{short}"{more_html}</div>'
             f'<div class="quote-meta">'
             f'<span class="quote-category">{cat}</span>'
             f'<span class="{sent_css}">{sent_icon} {sent}</span>'

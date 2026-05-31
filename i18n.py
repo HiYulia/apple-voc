@@ -47,6 +47,7 @@ STRINGS = {
     "cat_purchase_decision": {"zh": "选机决策", "en": "Purchase Decision"},
     "cat_general_positive": {"zh": "正面体验", "en": "General Positive"},
     "cat_general_negative": {"zh": "负面体验", "en": "General Negative"},
+    "cat_general_neutral":  {"zh": "中性体验", "en": "General Neutral"},
     "cat_other": {"zh": "其他", "en": "Other"},
     # source labels
     "src_xhs_comment": {"zh": "小红书评论", "en": "XHS Comments"},
