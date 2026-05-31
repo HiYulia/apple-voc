@@ -4,7 +4,10 @@ import time
 import pandas as pd
 from openai import OpenAI
 
-OPENROUTER_KEY = "OPENROUTER_API_KEY_PLACEHOLDER"
+import os
+OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+if not OPENROUTER_KEY:
+    raise EnvironmentError("Please set OPENROUTER_API_KEY environment variable")
 
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
