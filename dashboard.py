@@ -145,7 +145,9 @@ L = "zh" if lang == "中文" else "en"
 # ── Load data ──────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
-    for path in ["data/reviews_analyzed.csv", "data/sample_reviews.csv"]:
+    base = os.path.dirname(os.path.abspath(__file__))
+    for name in ["reviews_analyzed.csv", "sample_reviews.csv"]:
+        path = os.path.join(base, "data", name)
         if os.path.exists(path):
             return pd.read_csv(path), path
     return None, None
@@ -290,19 +292,21 @@ with r2l:
     title_posneg = "各维度正负面分布" if L=="zh" else "Positive vs Negative by Category"
     st.markdown(f'<div class="section-title">{title_posneg}</div>', unsafe_allow_html=True)
 
+    pos_label = "正面" if L=="zh" else "Positive"
+    neg_label = "负面" if L=="zh" else "Negative"
+
     pos_by_cat = (fdf[fdf["sentiment"]=="positive"]
                   .groupby("cat_label").size().reset_index(name="count"))
-    pos_by_cat["type"] = "positive"
+    pos_by_cat["type"] = pos_label
     neg_by_cat = (fdf[fdf["sentiment"]=="negative"]
                   .groupby("cat_label").size().reset_index(name="count"))
-    neg_by_cat["type"] = "negative"
-    # Negative counts shown as positive bars (direction conveyed by color)
+    neg_by_cat["type"] = neg_label
     combined = pd.concat([pos_by_cat, neg_by_cat])
 
     fig3 = px.bar(
         combined, x="count", y="cat_label", color="type",
         orientation="h", barmode="group",
-        color_discrete_map={"positive": "#10b981", "negative": "#ef4444"},
+        color_discrete_map={pos_label: "#10b981", neg_label: "#ef4444"},
         labels={"count": t("count", L), "cat_label": "", "type": t("sentiment", L)},
     )
     fig3.update_layout(**PLOTLY_THEME, height=340,
@@ -383,12 +387,26 @@ sub1, sub2 = ("最高赞正面评论", "最高赞负面评论") if L=="zh" else 
 
 q_col1, q_col2 = st.columns(2)
 
-JOKE_PATTERNS = ["辞职在家全职照顾手机", "哈哈哈哈", "😂😂😂", "打广告", "抽100台"]
+NOISE_PATTERNS = [
+    "辞职在家全职照顾手机", "哈哈哈哈", "抽100台",
+    r"#\S+\[话题\].*#\S+\[话题\]",   # 连续多个话题标签 = 博主推广帖
+    r"#\w+\[话题\]#\w+\[话题\]#\w+",  # 三个以上话题标签
+]
 
 def render_quotes(container, df_subset, max_quotes=4):
-    # Filter out jokes/memes and very short content
+    import re as _re
+    def is_noise(text):
+        text = str(text)
+        for p in NOISE_PATTERNS:
+            if _re.search(p, text):
+                return True
+        # 超过5个 # 说明是博主推广
+        if text.count("#") > 5:
+            return True
+        return False
+
     filtered = df_subset[
-        ~df_subset["content"].astype(str).str.contains("|".join(JOKE_PATTERNS), na=False) &
+        ~df_subset["content"].astype(str).apply(is_noise) &
         (df_subset["content"].astype(str).str.len() > 30)
     ]
     top = (filtered
