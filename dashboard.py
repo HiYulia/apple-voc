@@ -328,6 +328,14 @@ with r2r:
     trend["sent_label"] = trend["sentiment"].map(sent_map).fillna(trend["sentiment"])
     color_map_trend = {v: SENT_COLOR[k] for k,v in sent_map.items() if k in SENT_COLOR}
 
+    # Key events for annotations
+    EVENTS = [
+        ("2025-09", "📱 iPhone 17\n发布"      if L=="zh" else "📱 iPhone 17\nLaunch"),
+        ("2026-02", "🧧 春节\n消费高峰"        if L=="zh" else "🧧 CNY\nShopping"),
+        ("2026-04", "🏷️ 国补\n政策扩大"        if L=="zh" else "🏷️ Subsidy\nExpansion"),
+        ("2026-05", "🛒 618\n大促"             if L=="zh" else "🛒 618\nSale"),
+    ]
+
     if len(trend) > 0:
         fig4 = px.line(
             trend, x="month", y="count", color="sent_label",
@@ -336,7 +344,28 @@ with r2r:
             labels={"count": t("count", L), "month": "", "sent_label": t("sentiment", L)},
         )
         fig4.update_traces(line_width=2, marker_size=6)
-        fig4.update_layout(**PLOTLY_THEME, height=340,
+
+        # Add event annotations
+        month_totals = trend.groupby("month")["count"].sum().to_dict()
+        for month, label in EVENTS:
+            if month in month_totals:
+                y_val = month_totals[month]
+                fig4.add_vline(x=month, line_dash="dot", line_color="#475569", line_width=1)
+                fig4.add_annotation(
+                    x=month, y=y_val,
+                    text=label,
+                    showarrow=True,
+                    arrowhead=2, arrowsize=0.8,
+                    arrowcolor="#94a3b8",
+                    ax=0, ay=-38,
+                    font=dict(size=10, color="#f59e0b"),
+                    bgcolor="#1e2235",
+                    bordercolor="#f59e0b",
+                    borderwidth=1,
+                    borderpad=4,
+                )
+
+        fig4.update_layout(**PLOTLY_THEME, height=360,
                            xaxis=dict(gridcolor="#2d3147", tickangle=-30),
                            yaxis=dict(gridcolor="#2d3147"),
                            legend=dict(bgcolor="#1e2235", bordercolor="#2d3147"))
