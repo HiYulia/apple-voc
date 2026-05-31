@@ -1,10 +1,13 @@
 # Apple Product VOC Dashboard 📱
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit)](https://hiyulia-apple-voc-dashboard-oibfoj.streamlit.app/)
+[![GitHub Stars](https://img.shields.io/github/stars/HiYulia/apple-voc?style=for-the-badge)](https://github.com/HiYulia/apple-voc/stargazers)
+
 A continuously updated **Voice of Customer (VOC) analytics platform** for Apple products — currently covering iPhone 17, with iPad and Mac planned.
 
 Data is collected from real user discussions on **Xiaohongshu (小红书)** and **Bilibili (B站)**, classified using **Claude claude-haiku-4-5** semantic analysis.
 
-🔗 **Live Dashboard** → [Deploy instructions below](#deployment)
+🔗 **Live Dashboard** → [hiyulia-apple-voc-dashboard-oibfoj.streamlit.app](https://hiyulia-apple-voc-dashboard-oibfoj.streamlit.app/)
 
 ---
 
