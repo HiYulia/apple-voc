@@ -260,7 +260,13 @@ with row2_l:
     st.markdown(f'<div class="section-title">{t("neg_issues", L)}</div>', unsafe_allow_html=True)
     neg_df = fdf[fdf["sentiment"] == "negative"]
     if len(neg_df) > 0:
-        key_col = "key_point" if "key_point" in neg_df.columns else "key_issue"
+        # Use language-appropriate key_point column
+        if L == "en" and "key_point_en" in neg_df.columns:
+            key_col = "key_point_en"
+        elif "key_point" in neg_df.columns:
+            key_col = "key_point"
+        else:
+            key_col = "key_issue"
         ni = (neg_df.groupby(["cat_label", key_col]).size()
               .reset_index(name="count").sort_values("count", ascending=True).tail(10))
         fig3 = px.bar(
@@ -325,7 +331,9 @@ ins3.markdown(
 # ── Raw data ───────────────────────────────────────────────────────
 st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 with st.expander(f"🗂 {t('raw_data', L)}", expanded=False):
-    avail = ["model","content","score","cat_label","sentiment","key_point","src_label","creation_time"]
+    avail = ["model","content","score","cat_label","sentiment",
+             "key_point_en" if L=="en" else "key_point",
+             "src_label","creation_time"]
     show  = [c for c in avail if c in fdf.columns]
     st.dataframe(
         fdf[show].rename(columns={"cat_label": t("category",L), "src_label": "Source/来源",
