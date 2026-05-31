@@ -271,16 +271,29 @@ with r1r:
                            xaxis=dict(gridcolor="#2d3147"),
                            yaxis=dict(gridcolor="#2d3147"),
                            legend=dict(bgcolor="#1e2235", bordercolor="#2d3147"))
+        st.plotly_chart(fig2, use_container_width=True)
     else:
+        total = len(fdf)
         fig2 = go.Figure(go.Pie(
             labels=sent_counts["label"], values=sent_counts["count"],
-            hole=0.55,
+            hole=0.6,
             marker_colors=[SENT_COLOR.get(s, "#94a3b8") for s in sent_counts["sentiment"]],
-            textinfo="label+percent", textfont_size=12,
+            textinfo="label+percent",
+            textfont_size=12,
+            textposition="outside",  # labels outside to avoid overlap
+            insidetextorientation="radial",
         ))
+        # Data bias note
+        bias_note = "⚠️ 小红书/B站用户更倾向表达不满，负面占比偏高属正常" if L=="zh" else "⚠️ XHS/Bilibili users tend to voice complaints more; higher negative rate is expected"
         fig2.update_layout(**PLOTLY_THEME, height=360,
-                           legend=dict(bgcolor="#1e2235", bordercolor="#2d3147"))
-    st.plotly_chart(fig2, use_container_width=True)
+                           legend=dict(bgcolor="#1e2235", bordercolor="#2d3147"),
+                           annotations=[dict(
+                               text=f"<b>{total:,}</b><br>" + ("评论" if L=="zh" else "reviews"),
+                               x=0.5, y=0.5, xref="paper", yref="paper",
+                               showarrow=False, font=dict(size=17, color="#e2e8f0"),
+                           )])
+        st.plotly_chart(fig2, use_container_width=True)
+        st.caption(bias_note)
 
 # ══════════════════════════════════════════════════════════════════
 # ROW 2: Pos/Neg category comparison + Trend over time
@@ -328,12 +341,13 @@ with r2r:
     trend["sent_label"] = trend["sentiment"].map(sent_map).fillna(trend["sentiment"])
     color_map_trend = {v: SENT_COLOR[k] for k,v in sent_map.items() if k in SENT_COLOR}
 
-    # Key events for annotations
+    # Key events: (month, label_zh, label_en, arrow_offset_y)
+    # Stagger ay to prevent overlap for close events
     EVENTS = [
-        ("2025-09", "📱 iPhone 17\n发布"      if L=="zh" else "📱 iPhone 17\nLaunch"),
-        ("2026-02", "🧧 春节\n消费高峰"        if L=="zh" else "🧧 CNY\nShopping"),
-        ("2026-04", "🏷️ 国补\n政策扩大"        if L=="zh" else "🏷️ Subsidy\nExpansion"),
-        ("2026-05", "🛒 618\n大促"             if L=="zh" else "🛒 618\nSale"),
+        ("2025-09", "📱 iPhone 17 发布",   "📱 iPhone 17 Launch",    -45),
+        ("2026-02", "🧧 春节消费高峰",     "🧧 CNY Shopping Peak",   -45),
+        ("2026-04", "🏷️ 国补政策扩大",     "🏷️ Subsidy Expansion",   -80),  # higher to avoid overlap
+        ("2026-05", "🛒 618 大促",          "🛒 618 Sale",             -45),
     ]
 
     if len(trend) > 0:
@@ -345,11 +359,11 @@ with r2r:
         )
         fig4.update_traces(line_width=2, marker_size=6)
 
-        # Add event annotations
         month_totals = trend.groupby("month")["count"].sum().to_dict()
-        for month, label in EVENTS:
+        for month, label_zh, label_en, ay_offset in EVENTS:
             if month in month_totals:
                 y_val = month_totals[month]
+                label = label_zh if L == "zh" else label_en
                 fig4.add_vline(x=month, line_dash="dot", line_color="#475569", line_width=1)
                 fig4.add_annotation(
                     x=month, y=y_val,
@@ -357,17 +371,17 @@ with r2r:
                     showarrow=True,
                     arrowhead=2, arrowsize=0.8,
                     arrowcolor="#94a3b8",
-                    ax=0, ay=-38,
+                    ax=0, ay=ay_offset,
                     font=dict(size=10, color="#f59e0b"),
                     bgcolor="#1e2235",
                     bordercolor="#f59e0b",
                     borderwidth=1,
-                    borderpad=4,
+                    borderpad=3,
                 )
 
-        fig4.update_layout(**PLOTLY_THEME, height=360,
-                           xaxis=dict(gridcolor="#2d3147", tickangle=-30),
-                           yaxis=dict(gridcolor="#2d3147"),
+        fig4.update_layout(**PLOTLY_THEME, height=380,
+                           xaxis=dict(gridcolor="#2d3147", tickangle=-30, title=""),
+                           yaxis=dict(gridcolor="#2d3147", title=t("count", L)),
                            legend=dict(bgcolor="#1e2235", bordercolor="#2d3147"))
         st.plotly_chart(fig4, use_container_width=True)
     else:
