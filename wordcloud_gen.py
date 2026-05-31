@@ -16,24 +16,30 @@ STOPWORDS_ZH = {
     "在", "和", "与", "或", "但", "就", "也", "都", "很", "非常", "真的",
     "一个", "一些", "这个", "那个", "可以", "因为", "所以", "如果", "虽然",
     "还是", "就是", "其实", "已经", "一直", "没有", "现在", "大家", "自己",
-    "感觉", "觉得", "感觉", "觉", "感", "时候", "什么", "怎么", "为什么",
-    "不是", "不会", "不用", "不太", "不错", "不好", "比较", "还是", "应该",
-    "一样", "这样", "那么", "这么", "如何", "能够", "需要", "可能", "之前",
-    "之后", "以后", "以前", "今年", "去年", "出来", "进去", "知道", "发现",
+    "感觉", "觉得", "觉", "感", "时候", "什么", "怎么", "为什么",
+    "不是", "不会", "不用", "不太", "不错", "不好", "比较", "应该",
+    "一样", "这样", "那么", "这么", "如何", "能够", "需要", "可能",
+    "之前", "之后", "以后", "以前", "今年", "去年", "出来", "进去",
+    "知道", "发现", "还有", "没有", "不了", "不如", "很多", "以及",
+    "特别", "大约", "除了", "时间", "有没有", "差不多", "而且", "然后",
+    "虽然", "但是", "不过", "只是", "确实", "毕竟", "反正", "总之",
+    "有点", "有些", "好像", "看看", "试试", "想想",
     # 动词泛词
-    "用", "买", "买了", "用了", "用过", "来", "去", "说", "看", "想",
-    "换", "换了", "选", "选了", "做", "做了", "有点", "有些", "好像",
-    "感谢", "谢谢", "请问", "问一下",
-    # 产品名（太通用）
-    "手机", "苹果", "iPhone", "iphone", "17", "16", "15", "14",
-    "pro", "Pro", "max", "Max", "air", "Air", "系列",
+    "用", "买", "换", "选", "做", "来", "去", "说", "看", "想",
+    "买了", "用了", "换了", "感谢", "谢谢", "请问",
+    "建议", "推荐", "觉得", "感觉",
+    # 产品名泛词
+    "手机", "苹果", "iPhone", "iphone",
+    "17", "16", "15", "14", "13",
+    "pro", "Pro", "max", "Max", "air", "Air", "系列", "版本",
     # 语气词
-    "啊", "哦", "嗯", "吧", "呢", "哈", "嘛", "好", "吗", "哇", "喔",
-    "哎", "哟", "呀", "嘿", "嗨",
-    # 社交媒体噪音
+    "啊", "哦", "嗯", "吧", "呢", "哈", "嘛", "吗", "哇",
+    "哎", "哟", "呀", "嘿", "哈哈", "哈哈哈",
+    # 社交媒体
     "话题", "标签", "分享", "转发", "评论", "点赞", "收藏", "关注",
     "置顶", "回复", "楼主", "博主",
-    "R", "r", "null", "None", "nan", "nan",
+    # 数字/字母噪音
+    "R", "r", "null", "None", "nan",
 }
 STOPWORDS_EN = STOPWORDS | {
     "the", "a", "an", "is", "are", "was", "were", "be", "been", "have",
@@ -64,10 +70,11 @@ def get_font_path():
 def tokenize(texts: list[str], lang: str = "zh") -> str:
     """分词并过滤停用词，返回空格分隔的词串"""
     combined = " ".join(str(t) for t in texts)
-    # 清理 emoji、话题标签、HTML
+    # 清理 emoji、话题标签、HTML、特殊符号
     combined = re.sub(r"#\S+", "", combined)
     combined = re.sub(r"\[[\w]+R?\]", "", combined)
     combined = re.sub(r"<[^>]+>", "", combined)
+    combined = re.sub(r"[^一-鿿㐀-䶿a-zA-Z0-9\s]", " ", combined)  # 只保留中英文数字
 
     if lang == "zh":
         words = jieba.cut(combined, cut_all=False)
@@ -76,7 +83,8 @@ def tokenize(texts: list[str], lang: str = "zh") -> str:
             if len(w.strip()) >= 2
             and w.strip() not in STOPWORDS_ZH
             and not w.strip().isdigit()
-            and not re.match(r'^[a-zA-Z]{1,2}$', w.strip())
+            and not re.match(r'^[a-zA-Z0-9]{1,2}$', w.strip())
+            and re.search(r'[一-鿿]', w)  # 必须包含至少一个中文字符
         ]
     else:
         words = re.findall(r'\b[a-zA-Z]{3,}\b', combined)
@@ -121,12 +129,14 @@ def make_wordcloud(
             width=width,
             height=height,
             background_color="#1e2235",
-            max_words=80,
-            min_font_size=10,
-            max_font_size=80,
-            prefer_horizontal=0.8,
+            max_words=50,           # 减少词数，更清晰
+            min_font_size=14,       # 小字直接不显示
+            max_font_size=100,      # 大词更突出
+            prefer_horizontal=0.85,
             color_func=color_func,
             collocations=False,
+            margin=6,               # 词间距加大
+            relative_scaling=0.6,  # 词频差异更明显
         ).generate(word_str)
         return wc.to_image()
     except Exception as e:
