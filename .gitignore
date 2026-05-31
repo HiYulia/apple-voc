@@ -1,6 +1,7 @@
 # Data files with personal/scraped data
 data/reviews_raw.csv
 data/reviews_analyzed.csv
+# sample_reviews.csv is committed for demo/deployment
 data/iphone11_raw.csv
 data/online_shopping*.csv
 data/online_shopping*.zip
