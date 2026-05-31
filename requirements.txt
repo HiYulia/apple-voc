@@ -1,6 +1,8 @@
 requests
 pandas
-fake-useragent
-anthropic
 streamlit
 plotly
+openai
+wordcloud
+jieba
+Pillow

@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from i18n import t, cat_label, src_label
+from wordcloud_gen import make_wordcloud, pil_to_bytes
 
 # ── Page config ────────────────────────────────────────────────────
 st.set_page_config(
@@ -494,6 +495,45 @@ with q_col1:
 with q_col2:
     st.markdown(f"**{sub2}**")
     render_quotes(st, fdf[fdf["sentiment"]=="negative"], max_quotes=4)
+
+# ══════════════════════════════════════════════════════════════════
+# ROW 5: Word Cloud
+# ══════════════════════════════════════════════════════════════════
+st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+wc_title = "☁️ 高频词云" if L=="zh" else "☁️ Word Cloud"
+st.markdown(f'<div class="section-title">{wc_title}</div>', unsafe_allow_html=True)
+
+wc_tab1, wc_tab2, wc_tab3 = st.tabs([
+    "全部 / All" if L=="zh" else "All",
+    "✅ 正面 / Positive" if L=="zh" else "✅ Positive",
+    "⚠️ 负面 / Negative" if L=="zh" else "⚠️ Negative",
+])
+
+@st.cache_data(show_spinner=False)
+def get_wc_image(texts_tuple, lang, sentiment):
+    img = make_wordcloud(list(texts_tuple), lang=lang, sentiment=sentiment)
+    return pil_to_bytes(img) if img else None
+
+wc_lang = "zh"  # always use Chinese segmentation for Chinese text
+
+for tab, sent_filter, sent_key in [
+    (wc_tab1, None,       "all"),
+    (wc_tab2, "positive", "positive"),
+    (wc_tab3, "negative", "negative"),
+]:
+    with tab:
+        subset = fdf if sent_filter is None else fdf[fdf["sentiment"]==sent_filter]
+        texts = tuple(subset["content"].dropna().astype(str).tolist())
+        if len(texts) < 5:
+            st.info("数据不足" if L=="zh" else "Not enough data")
+        else:
+            img_bytes = get_wc_image(texts, wc_lang, sent_key)
+            if img_bytes:
+                st.image(img_bytes, use_container_width=True)
+                note = f"基于 {len(texts):,} 条评论 · 已过滤停用词" if L=="zh" else f"Based on {len(texts):,} reviews · stopwords removed"
+                st.caption(note)
+            else:
+                st.info("词云生成失败（可能缺少中文字体）" if L=="zh" else "Wordcloud unavailable (missing font)")
 
 # ══════════════════════════════════════════════════════════════════
 # Raw data expander
